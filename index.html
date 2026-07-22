@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SHAPE RAGE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0d0d0f;
+    --tape: #f2c14e;
+    --tape-dark: #1a1a1a;
+    --blood: #d1495b;
+    --toxic: #8fbf3f;
+    --off-white: #e8e6e1;
+    --shadow: #000000;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:var(--bg);
+    font-family:'JetBrains Mono', monospace;
+    color:var(--off-white);
+    user-select:none;
+  }
+  #app{
+    position:relative;
+    width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 6px),
+      var(--bg);
+  }
+  #stage{
+    position:relative;
+    width:min(100vw, 900px);
+    aspect-ratio: 16/9;
+    max-height: 96vh;
+    background: linear-gradient(180deg, #131316 0%, #0a0a0c 100%);
+    border: 3px solid #000;
+    box-shadow: 0 0 0 2px #2a2a2e, 0 20px 60px rgba(0,0,0,0.8), inset 0 0 80px rgba(0,0,0,0.5);
+    overflow:hidden;
+  }
+  .hazard-strip{
+    position:absolute; left:0; right:0; height:14px;
+    background: repeating-linear-gradient(45deg, var(--tape) 0 16px, var(--tape-dark) 16px 32px);
+    z-index:5;
+  }
+  .hazard-strip.top{top:0;}
+  .hazard-strip.bottom{bottom:0;}
+
+  canvas{
+    position:absolute; top:14px; left:0; right:0; bottom:14px;
+    width:100%; height:calc(100% - 28px);
+    display:block;
+  }
+
+  #hud{
+    position:absolute; top:22px; left:22px; z-index:10;
+    font-family:'JetBrains Mono', monospace;
+    font-weight:800;
+    font-size:clamp(14px,2.6vw,20px);
+    color:var(--off-white);
+    letter-spacing:1px;
+    text-shadow: 2px 2px 0 #000;
+  }
+  #hud .best{
+    color: var(--tape);
+    font-size:0.65em;
+    display:block;
+    margin-top:2px;
+  }
+
+  .overlay{
+    position:absolute; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:5%;
+    background: radial-gradient(ellipse at center, rgba(13,13,15,0.92) 0%, rgba(13,13,15,0.98) 100%);
+  }
+  .hidden{display:none !important;}
+
+  .title{
+    font-family:'Black Ops One', sans-serif;
+    font-size:clamp(28px, 8vw, 56px);
+    color:var(--off-white);
+    letter-spacing:2px;
+    line-height:1.05;
+    margin:0 0 6px 0;
+    text-shadow:
+      3px 3px 0 var(--blood),
+      6px 6px 0 #000;
+    transform: skewX(-4deg);
+  }
+  .subtitle{
+    font-size:clamp(11px,2.6vw,14px);
+    color:var(--tape);
+    letter-spacing:3px;
+    text-transform:uppercase;
+    margin:0 0 30px 0;
+    font-weight:700;
+  }
+
+  .btn{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:800;
+    font-size:clamp(14px,3vw,18px);
+    letter-spacing:1px;
+    background:var(--blood);
+    color:#fff;
+    border:none;
+    padding:16px 34px;
+    cursor:pointer;
+    box-shadow: 0 6px 0 #7a2636, 0 6px 0 #7a2636;
+    transform: skewX(-6deg);
+    transition: transform 0.06s ease;
+    text-transform:uppercase;
+  }
+  .btn span{display:inline-block; transform: skewX(6deg);}
+  .btn:active{ transform: skewX(-6deg) translateY(6px); box-shadow:none; }
+
+  .instructions{
+    margin-top:22px;
+    font-size:clamp(10px,2.2vw,12px);
+    color:#888;
+    letter-spacing:1px;
+  }
+
+  .death-line{
+    font-family:'Black Ops One', sans-serif;
+    font-size:clamp(30px, 9vw, 64px);
+    color:var(--blood);
+    margin: 0 0 6px 0;
+    letter-spacing:1px;
+    text-shadow: 3px 3px 0 #000;
+    animation: glitch 0.35s steps(2) 2;
+  }
+  .death-sub{
+    font-size:clamp(12px,2.8vw,15px);
+    color:var(--off-white);
+    margin-bottom:26px;
+    letter-spacing:0.5px;
+    max-width:80%;
+  }
+  .death-score{
+    font-size:clamp(12px,2.6vw,14px);
+    color:var(--tape);
+    margin-bottom:22px;
+    font-weight:700;
+    letter-spacing:1px;
+  }
+
+  @keyframes glitch{
+    0%{ transform:translate(0,0); }
+    25%{ transform:translate(-3px,2px); }
+    50%{ transform:translate(3px,-2px); }
+    75%{ transform:translate(-2px,-1px); }
+    100%{ transform:translate(0,0); }
+  }
+
+  .shake{ animation: shake 0.35s ease; }
+  @keyframes shake{
+    0%,100%{ transform:translate(0,0); }
+    20%{ transform:translate(-8px,4px); }
+    40%{ transform:translate(8px,-4px); }
+    60%{ transform:translate(-6px,-3px); }
+    80%{ transform:translate(6px,3px); }
+  }
+
+  .footer-note{
+    position:absolute; bottom:22px; right:22px; z-index:10;
+    font-size:10px; color:#555; letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div class="hazard-strip top"></div>
+    <div class="hazard-strip bottom"></div>
+
+    <div id="hud">
+      SCORE <span id="score">000</span>
+      <span class="best">BEST <span id="best">000</span></span>
+    </div>
+
+    <canvas id="game"></canvas>
+
+    <div class="overlay" id="startScreen">
+      <h1 class="title">SHAPE<br>RAGE</h1>
+      <p class="subtitle">fuck around and find out — adults only, no shitty kids' game here</p>
+      <button class="btn" id="startBtn"><span>START THIS SHIT — TAP / CLICK / SPACE</span></button>
+      <p class="instructions">jump the fucking spikes. don't be a dumbass. good luck, shithead.</p>
+    </div>
+
+    <div class="overlay hidden" id="deathScreen">
+      <h1 class="death-line" id="deathLine">FUCK U</h1>
+      <p class="death-sub" id="deathSub">you died like an absolute clown.</p>
+      <p class="death-score">DISTANCE: <span id="finalScore">0</span> — BEST: <span id="finalBest">0</span></p>
+      <button class="btn" id="retryBtn"><span>TRY AGAIN, DUMBASS</span></button>
+    </div>
+
+    <div class="footer-note">SHAPE RAGE // v1</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const startScreen = document.getElementById('startScreen');
+  const deathScreen = document.getElementById('deathScreen');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const finalScoreEl = document.getElementById('finalScore');
+  const finalBestEl = document.getElementById('finalBest');
+  const deathLineEl = document.getElementById('deathLine');
+  const deathSubEl = document.getElementById('deathSub');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+
+  let W, H, DPR;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    DPR = window.devicePixelRatio || 1;
+    W = rect.width; H = rect.height;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+
+  const GROUND_Y_RATIO = 0.78;
+  const GRAVITY = 0.0022;
+  const JUMP_V = -0.72;
+  let baseSpeed = 0.34; // px per ms scaled
+
+  let player = { x:0, y:0, size:0, vy:0, rot:0, onGround:true, groundY:0 };
+  let obstacles = [], particles = [], t = 0, score = 0, best = 0, speed = baseSpeed, running = false, spawnTimer = 0, nextSpawn = 900;
+
+  const deathLines = [
+    ["FUCK U", "you died like an absolute clown."],
+    ["NICE ONE, ASSHOLE", "that spike had your name on it."],
+    ["GOD DAMN IT", "you played that like a drunk toddler."],
+    ["EAT SHIT", "seriously, how did you mess that up."],
+    ["PATHETIC", "my grandma jumps better than that."],
+    ["WRECKED", "that was embarrassing to watch."],
+    ["RIP, DUMBASS", "try using your eyes next time."],
+    ["OOF, BITCH", "the spike says hi."],
+  ];
+
+  function reset(){
+    player = {
+      x: 0, y: 0, size: 0, vy: 0, rot: 0, onGround: true
+    };
+    obstacles = [];
+    particles = [];
+    t = 0;
+    score = 0;
+    speed = baseSpeed;
+    running = true;
+    nextSpawn = 900;
+    spawnTimer = 0;
+    layoutPlayer();
+  }
+
+  function layoutPlayer(){
+    const groundY = H * GROUND_Y_RATIO;
+    const size = Math.max(24, H * 0.09);
+    player.size = size;
+    player.x = W * 0.16;
+    player.groundY = groundY - size;
+    if (player.onGround !== false){
+      player.y = player.groundY;
+    }
+  }
+
+  function spawnObstacle(){
+    const groundY = H * GROUND_Y_RATIO;
+    const size = Math.max(22, H * 0.085);
+    const type = Math.random() < 0.75 ? 'spike' : 'block';
+    obstacles.push({
+      x: W + size,
+      size: size,
+      type: type,
+      groundY: groundY,
+      passed: false
+    });
+  }
+
+  function jump(){
+    if (!running){ return; }
+    if (player.onGround){
+      player.vy = JUMP_V;
+      player.onGround = false;
+    }
+  }
+
+  function spawnParticles(x,y,color,count){
+    for(let i=0;i<count;i++){
+      particles.push({
+        x, y,
+        vx: (Math.random()-0.5)*0.6,
+        vy: (Math.random()-1.2)*0.6,
+        life: 500 + Math.random()*400,
+        age:0,
+        color,
+        size: 3 + Math.random()*5
+      });
+    }
+  }
+
+  function die(){
+    running = false;
+    if (score > best){ best = score; }
+    const pick = deathLines[Math.floor(Math.random()*deathLines.length)];
+    deathLineEl.textContent = pick[0];
+    deathSubEl.textContent = pick[1];
+    finalScoreEl.textContent = Math.floor(score);
+    finalBestEl.textContent = Math.floor(best);
+    bestEl.textContent = String(Math.floor(best)).padStart(3,'0');
+    stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
+    spawnParticles(player.x + player.size/2, player.y + player.size/2, '#d1495b', 26);
+    setTimeout(()=>{
+      deathScreen.classList.remove('hidden');
+    }, 260);
+  }
+
+  function update(dt){
+    if (!running) return;
+    t += dt;
+    speed += dt * 0.000006; // gradual ramp
+    score += dt * speed * 0.06;
+    scoreEl.textContent = String(Math.floor(score)).padStart(3,'0');
+
+    // player physics
+    player.vy += GRAVITY * dt;
+    player.y += player.vy * dt;
+    if (player.y >= player.groundY){
+      player.y = player.groundY;
+      player.vy = 0;
+      player.onGround = true;
+      player.rot = Math.round(player.rot / 90) * 90;
+    } else {
+      player.rot += dt * 0.35;
+    }
+
+    // spawn
+    spawnTimer += dt;
+    if (spawnTimer > nextSpawn){
+      spawnTimer = 0;
+      nextSpawn = 700 + Math.random()*500 - Math.min(300, speed*300);
+      nextSpawn = Math.max(420, nextSpawn);
+      spawnObstacle();
+    }
+
+    // move obstacles + collide
+    const pRect = {
+      x: player.x + player.size*0.15,
+      y: player.y + player.size*0.15,
+      w: player.size*0.7,
+      h: player.size*0.7
+    };
+    for (let i = obstacles.length-1; i>=0; i--){
+      const o = obstacles[i];
+      o.x -= speed * dt;
+      if (o.x < -o.size*2){
+        obstacles.splice(i,1);
+        continue;
+      }
+      let oRect;
+      if (o.type === 'spike'){
+        oRect = { x:o.x + o.size*0.2, y:o.groundY - o.size*0.8, w:o.size*0.6, h:o.size*0.8 };
+      } else {
+        oRect = { x:o.x, y:o.groundY - o.size, w:o.size, h:o.size };
+      }
+      if (rectsOverlap(pRect, oRect)){
+        die();
+        return;
+      }
+    }
+
+    // particles
+    for (let i = particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life){ particles.splice(i,1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += GRAVITY*0.5*dt;
+    }
+  }
+
+  function rectsOverlap(a,b){
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // background grid vibe
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    const gridSize = Math.max(30, H*0.09);
+    const offset = (t*0.05) % gridSize;
+    for (let x = -offset; x < W; x += gridSize){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    ctx.restore();
+
+    // ground
+    const groundY = H*GROUND_Y_RATIO;
+    ctx.fillStyle = '#1c1c20';
+    ctx.fillRect(0, groundY, W, H-groundY);
+    ctx.fillStyle = 'rgba(242,193,78,0.9)';
+    ctx.fillRect(0, groundY, W, 3);
+
+    // obstacles
+    obstacles.forEach(o=>{
+      if (o.type === 'spike'){
+        ctx.fillStyle = '#d1495b';
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.groundY);
+        ctx.lineTo(o.x + o.size, o.groundY);
+        ctx.lineTo(o.x + o.size/2, o.groundY - o.size);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#8fbf3f';
+        ctx.fillRect(o.x, o.groundY-o.size, o.size, o.size);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(o.x, o.groundY-o.size, o.size, o.size);
+      }
+    });
+
+    // player
+    ctx.save();
+    const cx = player.x + player.size/2;
+    const cy = player.y + player.size/2;
+    ctx.translate(cx,cy);
+    ctx.rotate((player.rot * Math.PI)/180);
+    ctx.fillStyle = '#e8e6e1';
+    ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+    ctx.strokeStyle = '#d1495b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-player.size/2, -player.size/2, player.size, player.size);
+    ctx.restore();
+
+    // particles
+    particles.forEach(p=>{
+      const alpha = Math.max(0, 1 - p.age/p.life);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  let last = 0;
+  function loop(ts){
+    if (!last) last = ts;
+    let dt = ts - last;
+    last = ts;
+    if (dt > 60) dt = 60; // clamp big jumps (tab switch etc)
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function startGame(){
+    resize();
+    reset();
+    startScreen.classList.add('hidden');
+    deathScreen.classList.add('hidden');
+    bestEl.textContent = String(Math.floor(best)).padStart(3,'0');
+  }
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+
+  window.addEventListener('keydown', (e)=>{
+    if (e.code === 'Space'){
+      e.preventDefault();
+      if (!running && !deathScreen.classList.contains('hidden')){
+        return;
+      }
+      jump();
+    }
+  });
+  stage.addEventListener('pointerdown', (e)=>{
+    if (e.target === startBtn || e.target.closest('#startBtn') || e.target === retryBtn || e.target.closest('#retryBtn')) return;
+    jump();
+  });
+
+  resize();
+  layoutPlayer();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
